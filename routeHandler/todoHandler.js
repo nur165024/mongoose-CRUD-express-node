@@ -3,9 +3,10 @@ const mongoose = require("mongoose");
 const todoSchema = require("../schemas/todoSchema");
 const router = express.Router();
 const Todo = new mongoose.model("Todo", todoSchema);
+const checkLogin = require("../middlewares/checkLogin");
 
 // GET ALL THE TODO'S
-router.get("/", async (req, res) => {
+router.get("/", checkLogin, async (req, res) => {
   await Todo.find({ status: "active" }).exec((err, data) => {
     if (err) {
       res.status(500).json({
