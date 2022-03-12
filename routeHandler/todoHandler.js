@@ -1,24 +1,28 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const todoSchema = require("../schemas/todoSchema");
+const userSchema = require("../schemas/userSchema");
 const router = express.Router();
 const Todo = new mongoose.model("Todo", todoSchema);
+const User = new mongoose.model("User", userSchema);
 const checkLogin = require("../middlewares/checkLogin");
 
 // GET ALL THE TODO'S
 router.get("/", checkLogin, async (req, res) => {
-  await Todo.find({ status: "active" }).exec((err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "There was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        result: data,
-        message: "Success",
-      });
-    }
-  });
+  try {
+    const data = await Todo.find().populate(
+      "user",
+      "name phone userName status"
+    );
+    res.status(200).json({
+      result: data,
+      message: "Success",
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "There was a server side error",
+    });
+  }
 });
 
 // GET ALL STATUS : @ACTIVE (METHODS)
@@ -98,19 +102,32 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST A TODO
-router.post("/", async (req, res) => {
-  const newTodo = new Todo(req.body);
-  await newTodo.save((error) => {
-    if (error) {
-      res.status(500).json({
-        error: "There was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        message: "Todo was inserted successfully!",
-      });
-    }
+router.post("/", checkLogin, async (req, res) => {
+  const newTodo = new Todo({
+    ...req.body,
+    user: req.userId,
   });
+
+  try {
+    const todo = await newTodo.save();
+    await User.updateOne(
+      {
+        _id: req.userId,
+      },
+      {
+        $push: {
+          todos: todo._id,
+        },
+      }
+    );
+    res.status(200).json({
+      message: "Todo was inserted successfully!",
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "There was a server side error",
+    });
+  }
 });
 
 // POST MULTIPLE TODO
